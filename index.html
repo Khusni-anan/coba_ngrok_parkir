@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Parking Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2f; color: #fff; margin: 0; padding: 20px; text-align: center; }
+        .container { max-width: 1300px; margin: auto; background: #2a2a40; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .top-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        input[type="text"] { width: 400px; padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #444; background: #1e1e2f; color: white; }
+        button { padding: 10px 20px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: white; transition: 0.3s; }
+        .btn-connect { background-color: #007bff; }
+        .btn-connect:hover { background-color: #0056b3; }
+        .btn-ticket { background-color: #ffc107; color: black; font-size: 20px; padding: 15px 30px; width: 100%; border-radius: 10px;}
+        .btn-ticket:hover { background-color: #e0a800; transform: scale(1.02); }
+        .main-content { display: flex; gap: 20px; align-items: flex-start; justify-content: center; }
+        .video-container { flex: 3; background: #000; border-radius: 10px; overflow: hidden; border: 3px solid #444; min-height: 500px; display:flex; align-items:center; justify-content:center;}
+        .video-container img { width: 100%; display: none; }
+        .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        .ticket-view { background: #fff8e1; color: #333; padding: 25px; border-radius: 10px; border: 2px dashed #ffc107; min-height: 200px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚗 Pusat Kendali Smart Parking</h1>
+    
+    <div class="top-bar">
+        <input type="text" id="apiUrl" placeholder="Masukkan URL Ngrok (https://xxx.ngrok-free.dev)">
+        <button class="btn-connect" onclick="hubungkanVideo()">Sambungkan CCTV</button>
+    </div>
+
+    <div class="main-content">
+        <div class="video-container">
+            <span id="placeholderText">Menunggu koneksi Ngrok...</span>
+            <img id="videoStream" alt="Live CCTV Stream">
+        </div>
+
+        <div class="side-panel">
+            <button class="btn-ticket" onclick="cetakTiket()">🎫 CETAK TIKET</button>
+            <div class="ticket-view" id="tiketResult">
+                <h3 style="color: gray; margin-top: 50px;">Tiket akan muncul di sini</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let baseUrl = "";
+
+    function hubungkanVideo() {
+        baseUrl = document.getElementById('apiUrl').value.replace(/\/$/, "");
+        if (!baseUrl) { alert("Masukkan URL Ngrok terlebih dahulu!"); return; }
+        
+        // Memunculkan video dengan mengganti sumber (src) gambar ke endpoint streaming
+        const imgStream = document.getElementById('videoStream');
+        const placeholder = document.getElementById('placeholderText');
+        
+        imgStream.src = `${baseUrl}/video_feed`;
+        imgStream.style.display = "block";
+        placeholder.style.display = "none";
+    }
+
+    async function cetakTiket() {
+        if (!baseUrl) { alert("Sambungkan CCTV terlebih dahulu!"); return; }
+        const tiketContainer = document.getElementById('tiketResult');
+        tiketContainer.innerHTML = "<i>Memproses gerbang masuk...</i>";
+
+        try {
+            // Memanggil endpoint cetak tiket
+            const response = await fetch(`${baseUrl}/cetak_tiket`, { method: "POST" });
+            const data = await response.json();
+
+            if (data.status === "penuh") {
+                tiketContainer.innerHTML = `<h2 style='color:red;'>🚨<br>MOHON MAAF<br>PARKIR PENUH!</h2>`;
+            } else {
+                const waktu = new Date().toLocaleTimeString();
+                tiketContainer.innerHTML = `
+                    <h3>MALL X PARKING</h3>
+                    <p style="margin:5px 0;">Waktu Masuk: <b>${waktu}</b></p>
+                    <p style="margin:5px 0;">Gate: <b>UTAMA</b></p>
+                    <hr style="border-top: 1px dashed #333;">
+                    <p style="margin-top:15px; font-size:14px;">SILAKAN MENUJU BLOK:</p>
+                    <h1 style="font-size: 50px; margin: 0; color: #28a745;">${data.slot}</h1>
+                `;
+            }
+        } catch (error) {
+            tiketContainer.innerHTML = `<p style="color:red;">Error: Gagal terhubung ke server.</p>`;
+        }
+    }
+</script>
+
+</body>
+</html>
