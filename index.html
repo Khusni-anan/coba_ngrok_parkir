@@ -2,17 +2,17 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Smart Parking Dashboard - Kamera Pengawas</title>
+    <title>Smart Parking Dashboard - Realtime View</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2f; color: #fff; margin: 0; padding: 20px; text-align: center; }
         .container { max-width: 1200px; margin: auto; background: #2a2a40; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .upload-section { background: #1e1e2f; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px dashed #444; }
+        .top-bar { background: #1e1e2f; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #444; }
         button { padding: 12px 25px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: white; transition: 0.3s; }
         .btn-process { background-color: #007bff; }
-        .btn-process:hover { background-color: #0056b3; }
+        .btn-process:hover { background-color: #0056b3; transform: scale(1.02); }
         .main-content { display: flex; gap: 20px; justify-content: center; margin-top: 20px; align-items: flex-start; }
-        .video-container { flex: 2; background: #1e1e2f; border-radius: 10px; padding: 10px; min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #444;}
-        video { width: 100%; max-height: 450px; border-radius: 5px; display: none; }
+        .video-container { flex: 2; background: #1e1e2f; border-radius: 10px; padding: 10px; min-height: 400px; border: 1px solid #444;}
+        video { width: 100%; max-height: 450px; border-radius: 5px; object-fit: cover; }
         .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; text-align: left; }
         .status-card { background: #32324d; padding: 15px; border-radius: 8px; }
         .ticket-view { background: #fff8e1; color: #333; padding: 20px; border-radius: 10px; border: 2px dashed #ffc107; text-align: center; min-height: 180px; }
@@ -24,18 +24,20 @@
 <body>
 
 <div class="container">
-    <h1>🚗 Pusat Kendali Smart Parking (Upload Video)</h1>
+    <h1>🚗 Pusat Kendali Smart Parking (Live View)</h1>
     
-    <div class="upload-section">
-        <h3 style="margin-top:0;">📹 Langkah 1: Masukkan File Rekaman Video CCTV (.mp4)</h3>
-        <input type="file" id="videoInput" accept="video/mp4" style="font-size:16px;">
-        <button class="btn-process" onclick="prosesDeteksiVideo()">🔍 Jalankan Analisis Video</button>
+    <div class="top-bar">
+        <h3 style="margin:0 0 10px 0;">CCTV Terhubung Otomatis</h3>
+        <button class="btn-process" onclick="analisisFrameCCTV()">🔍 Pindai Kondisi Slot Terkini</button>
     </div>
 
     <div class="main-content">
         <div class="video-container">
-            <h4 id="placeholderTxt" style="color:gray;">Belum ada video yang dimuat</h4>
-            <video id="videoPreview" controls></video>
+            <video id="videoCCTV" autoplay loop muted playsinline>
+                <source src="parking_test.mp4" type="video/mp4">
+                Browser Anda tidak mendukung tag video.
+            </video>
+            <canvas id="captureCanvas" style="display: none;"></canvas>
         </div>
 
         <div class="side-panel">
@@ -56,54 +58,56 @@
 </div>
 
 <script>
-    // URL LINK PUBLIK SUDAH DIKUNCI PERMANEN DI SINI!
+    // URL LocalTunnel Statis Anda
     const baseUrl = "https://smart-parking-yolov11.loca.lt";
 
-    document.getElementById('videoInput').addEventListener('change', function(e) {
-        if(e.target.files[0]) {
-            const fileUrl = URL.createObjectURL(e.target.files[0]);
-            const video = document.getElementById('videoPreview');
-            video.src = fileUrl;
-            video.style.display = "block";
-            document.getElementById('placeholderTxt').style.display = "none";
-        }
-    });
-
-    async function prosesDeteksiVideo() {
-        const fileInput = document.getElementById('videoInput');
-        if (fileInput.files.length === 0) { alert("Silakan pilih file video MP4 terlebih dahulu!"); return; }
+    async function analisisFrameCCTV() {
+        const video = document.getElementById('videoCCTV');
+        const canvas = document.getElementById('captureCanvas');
+        const ctx = canvas.getContext('2d');
         
-        document.getElementById('divDetailSlot').innerHTML = "<i>Mengirim video ke cloud & memproses model YOLOv11... (Mohon tunggu)</i>";
-        
-        const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
+        document.getElementById('divDetailSlot').innerHTML = "<i>Sedang menangkap frame & menganalisis YOLOv11...</i>";
 
-        try {
-            const response = await fetch(`${baseUrl}/deteksi_video`, {
-                method: "POST",
-                body: formData
-            });
-            const data = await response.json();
-            
-            if(data.status === "sukses") {
-                document.getElementById('lblKosong').innerText = data.total_slot_kosong;
-                document.getElementById('lblTerisi').innerText = data.total_slot_terisi;
+        // 1. Atur ukuran canvas sesuai resolusi video asli
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // 2. Potret frame video saat ini dan gambar ke dalam canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // 3. Ubah hasil potretan canvas menjadi file Blob gambar (JPEG)
+        canvas.toBlob(async function(blob) {
+            if (!blob) { alert("Gagal menangkap frame video."); return; }
+
+            const formData = new FormData();
+            formData.append("file", blob, "cctv_frame.jpg");
+
+            try {
+                // 4. Kirim data ke endpoint /deteksi (Gunakan endpoint gambar agar hemat bandwidth!)
+                const response = await fetch(`${baseUrl}/deteksi`, {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await response.json();
                 
-                let htmlDetail = "";
-                for (const [slotId, status] of Object.entries(data.detail_slot)) {
-                    let badgeClass = status === "Kosong" ? "badge-kosong" : "badge-terisi";
-                    htmlDetail += `<div>Slot <b>${slotId}</b>: <span class="badge ${badgeClass}">${status}</span></div>`;
+                if(data.status === "sukses") {
+                    document.getElementById('lblKosong').innerText = data.total_slot_kosong;
+                    document.getElementById('lblTerisi').innerText = data.total_slot_terisi;
+                    
+                    let htmlDetail = "";
+                    for (const [slotId, status] of Object.entries(data.detail_slot)) {
+                        let badgeClass = status === "Kosong" ? "badge-kosong" : "badge-terisi";
+                        htmlDetail += `<div>Slot <b>${slotId}</b>: <span class="badge ${badgeClass}">${status}</span></div>`;
+                    }
+                    document.getElementById('divDetailSlot').innerHTML = htmlDetail;
+                    
+                    cetakStrukKarcis(data.rekomendasi);
                 }
-                document.getElementById('divDetailSlot').innerHTML = htmlDetail;
-                
-                cetakStrukKarcis(data.rekomendasi);
-            } else {
-                alert("Gagal menganalisis: " + data.message);
+            } catch (error) {
+                document.getElementById('divDetailSlot').innerHTML = "<span style='color:red;'>Gagal terhubung ke Cloud server.</span>";
+                alert("Koneksi gagal! Pastikan backend Google Colab Anda running.");
             }
-        } catch (error) {
-            document.getElementById('divDetailSlot').innerHTML = "<span style='color:red;'>Gagal terhubung ke Cloud server.</span>";
-            alert("Koneksi gagal! Pastikan backend Google Colab Anda dalam posisi Running.");
-        }
+        }, "image/jpeg", 0.9);
     }
 
     function cetakStrukKarcis(slotRekomendasi) {
