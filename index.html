@@ -2,88 +2,61 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Smart Parking Dashboard - Live Streaming Mode</title>
+    <title>Pusat Kendali Multi-CCTV Smart Parking</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2f; color: #fff; margin: 0; padding: 20px; text-align: center; }
-        .container { max-width: 1300px; margin: auto; background: #2a2a40; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .top-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
-        button { padding: 12px 30px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: white; transition: 0.3s; }
-        .btn-connect { background-color: #007bff; font-size: 18px; }
-        .btn-connect:hover { background-color: #0056b3; transform: scale(1.02); }
-        .btn-ticket { background-color: #ffc107; color: black; font-size: 20px; padding: 15px 30px; width: 100%; border-radius: 10px;}
-        .btn-ticket:hover { background-color: #e0a800; transform: scale(1.02); }
-        .main-content { display: flex; gap: 20px; align-items: flex-start; justify-content: center; }
-        .video-container { flex: 3; background: #000; border-radius: 10px; overflow: hidden; border: 3px solid #444; min-height: 500px; display:flex; align-items:center; justify-content:center;}
-        .video-container img { width: 100%; display: none; }
-        .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; }
-        .ticket-view { background: #fff8e1; color: #333; padding: 25px; border-radius: 10px; border: 2px dashed #ffc107; min-height: 200px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #11111e; color: #fff; margin: 0; padding: 20px; text-align: center; }
+        .container { max-width: 1400px; margin: auto; background: #1e1e2f; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.7); }
+        .btn-connect { background-color: #28a745; padding: 12px 30px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 6px; color: white; margin-bottom: 25px; transition: 0.3s; }
+        .btn-connect:hover { background-color: #218838; transform: scale(1.02); }
+        
+        /* Mengatur susunan Grid Monitor CCTV bersebelahan */
+        .cctv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 10px; }
+        
+        .cctv-box { background: #000; border-radius: 8px; border: 3px solid #333; overflow: hidden; position: relative; min-height: 400px; display: flex; align-items: center; justify-content: center; }
+        .cctv-box img { width: 100%; height: auto; display: none; }
+        .cctv-label { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 4px; border: 1px solid red; color: red; font-weight: bold; font-size: 12px; }
+        .placeholder-text { color: #555; font-style: italic; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🚗 Pusat Kendali Smart Parking (Live Streaming)</h1>
-    
-    <div class="top-bar">
-        <button class="btn-connect" onclick="hubungkanVideo()">🔌 Hubungkan ke Live CCTV Stream</button>
-    </div>
+    <h1>🎛️ Pusat Kendali Multi-CCTV Smart Parking (YOLOv11)</h1>
+    <button class="btn-connect" onclick="hubungkanSemuaCCTV()">🔌 Aktifkan Semua Kamera Sistem</button>
 
-    <div class="main-content">
-        <div class="video-container">
-            <span id="placeholderText">Menunggu koneksi dari server LocalTunnel...</span>
-            <img id="videoStream" alt="Live CCTV Stream">
+    <div class="cctv-grid">
+        <div class="cctv-box">
+            <span class="cctv-label">🔴 LIVE CH-01</span>
+            <span id="p1" class="placeholder-text">Kamera Utama Gate Masuk (Offline)</span>
+            <img id="cam1" alt="CCTV 1">
         </div>
 
-        <div class="side-panel">
-            <button class="btn-ticket" onclick="cetakTiket()">🎫 CETAK TIKET</button>
-            <div class="ticket-view" id="tiketResult">
-                <h3 style="color: gray; margin-top: 50px;">Tiket akan muncul di sini</h3>
-            </div>
+        <div class="cctv-box">
+            <span class="cctv-label">🔴 LIVE CH-02</span>
+            <span id="p2" class="placeholder-text">Kamera Cadangan Lantai 2 (Offline)</span>
+            <img id="cam2" alt="CCTV 2">
         </div>
     </div>
 </div>
 
 <script>
-    // URL Permanen LocalTunnel Anda
+    // URL Tautan Permanen LocalTunnel Anda
     const baseUrl = "https://smart-parking-yolov11.loca.lt";
-    let isConnected = false;
 
-    function hubungkanVideo() {
-        const imgStream = document.getElementById('videoStream');
-        const placeholder = document.getElementById('placeholderText');
-        
-        // Memanggil endpoint MJPEG streaming langsung dari Colab
-        imgStream.src = `${baseUrl}/video_feed`;
-        imgStream.style.display = "block";
-        placeholder.style.display = "none";
-        isConnected = true;
-    }
+    function hubungkanSemuaCCTV() {
+        const cam1 = document.getElementById('cam1');
+        const cam2 = document.getElementById('cam2');
+        const p1 = document.getElementById('p1');
+        const p2 = document.getElementById('p2');
 
-    async function cetakTiket() {
-        if (!isConnected) { alert("Sambungkan koneksi CCTV terlebih dahulu!"); return; }
-        const tiketContainer = document.getElementById('tiketResult');
-        tiketContainer.innerHTML = "<i>Memproses gerbang masuk...</i>";
+        // Menembak ke masing-masing endpoint multi-feed di Colab
+        cam1.src = `${baseUrl}/video_feed/1`;
+        cam2.src = `${baseUrl}/video_feed/2`;
 
-        try {
-            const response = await fetch(`${baseUrl}/cetak_tiket`, { method: "POST" });
-            const data = await response.json();
-
-            if (data.status === "penuh") {
-                tiketContainer.innerHTML = `<h2 style='color:red;'>🚨<br>MOHON MAAF<br>PARKIR PENUH!</h2>`;
-            } else {
-                const waktu = new Date().toLocaleTimeString();
-                tiketContainer.innerHTML = `
-                    <h3>MALL X PARKING</h3>
-                    <p style="margin:5px 0;">Waktu Masuk: <b>${waktu}</b></p>
-                    <p style="margin:5px 0;">Gate: <b>UTAMA</b></p>
-                    <hr style="border-top: 1px dashed #333;">
-                    <p style="margin-top:15px; font-size:14px;">SILAKAN MENUJU BLOK:</p>
-                    <h1 style="font-size: 50px; margin: 0; color: #28a745;">${data.slot}</h1>
-                `;
-            }
-        } catch (error) {
-            tiketContainer.innerHTML = `<p style="color:red;">Error: Gagal terhubung ke server.<br><small>Pastikan Anda sudah memasukkan password IP di link LocalTunnel.</small></p>`;
-        }
+        cam1.style.display = "block";
+        cam2.style.display = "block";
+        p1.style.display = "none";
+        p2.style.display = "none";
     }
 </script>
 
