@@ -2,129 +2,88 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Smart Parking Dashboard - Realtime View</title>
+    <title>Smart Parking Dashboard - Live Streaming Mode</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2f; color: #fff; margin: 0; padding: 20px; text-align: center; }
-        .container { max-width: 1200px; margin: auto; background: #2a2a40; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .top-bar { background: #1e1e2f; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #444; }
-        button { padding: 12px 25px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: white; transition: 0.3s; }
-        .btn-process { background-color: #007bff; }
-        .btn-process:hover { background-color: #0056b3; transform: scale(1.02); }
-        .main-content { display: flex; gap: 20px; justify-content: center; margin-top: 20px; align-items: flex-start; }
-        .video-container { flex: 2; background: #1e1e2f; border-radius: 10px; padding: 10px; min-height: 400px; border: 1px solid #444;}
-        video { width: 100%; max-height: 450px; border-radius: 5px; object-fit: cover; }
-        .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; text-align: left; }
-        .status-card { background: #32324d; padding: 15px; border-radius: 8px; }
-        .ticket-view { background: #fff8e1; color: #333; padding: 20px; border-radius: 10px; border: 2px dashed #ffc107; text-align: center; min-height: 180px; }
-        .badge { padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 14px; }
-        .badge-kosong { background-color: #28a745; color: white; }
-        .badge-terisi { background-color: #dc3545; color: white; }
+        .container { max-width: 1300px; margin: auto; background: #2a2a40; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .top-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        button { padding: 12px 30px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; border-radius: 5px; color: white; transition: 0.3s; }
+        .btn-connect { background-color: #007bff; font-size: 18px; }
+        .btn-connect:hover { background-color: #0056b3; transform: scale(1.02); }
+        .btn-ticket { background-color: #ffc107; color: black; font-size: 20px; padding: 15px 30px; width: 100%; border-radius: 10px;}
+        .btn-ticket:hover { background-color: #e0a800; transform: scale(1.02); }
+        .main-content { display: flex; gap: 20px; align-items: flex-start; justify-content: center; }
+        .video-container { flex: 3; background: #000; border-radius: 10px; overflow: hidden; border: 3px solid #444; min-height: 500px; display:flex; align-items:center; justify-content:center;}
+        .video-container img { width: 100%; display: none; }
+        .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        .ticket-view { background: #fff8e1; color: #333; padding: 25px; border-radius: 10px; border: 2px dashed #ffc107; min-height: 200px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🚗 Pusat Kendali Smart Parking (Live View)</h1>
+    <h1>🚗 Pusat Kendali Smart Parking (Live Streaming)</h1>
     
     <div class="top-bar">
-        <h3 style="margin:0 0 10px 0;">CCTV Terhubung Otomatis</h3>
-        <button class="btn-process" onclick="analisisFrameCCTV()">🔍 Pindai Kondisi Slot Terkini</button>
+        <button class="btn-connect" onclick="hubungkanVideo()">🔌 Hubungkan ke Live CCTV Stream</button>
     </div>
 
     <div class="main-content">
         <div class="video-container">
-            <video id="videoCCTV" autoplay loop muted playsinline>
-                <source src="parking_test.mp4" type="video/mp4">
-                Browser Anda tidak mendukung tag video.
-            </video>
-            <canvas id="captureCanvas" style="display: none;"></canvas>
+            <span id="placeholderText">Menunggu koneksi dari server LocalTunnel...</span>
+            <img id="videoStream" alt="Live CCTV Stream">
         </div>
 
         <div class="side-panel">
-            <div class="status-card">
-                <h3 style="margin-top:0; border-bottom:1px solid #555; padding-bottom:5px;">📊 Manifes Slot</h3>
-                <p>Slot Kosong: <b id="lblKosong" style="color:#28a745;">0</b></p>
-                <p>Slot Terisi: <b id="lblTerisi" style="color:#dc3545;">0</b></p>
-                <div id="divDetailSlot" style="font-size:15px; margin-top:10px; max-height:150px; overflow-y:auto; line-height:1.6;"></div>
-            </div>
-
-            <div class="status-card" style="background:#2a2a40; padding:0;">
-                <div class="ticket-view" id="tiketResult">
-                    <h3 style="color: gray; margin-top: 40px;">Tiket masuk akan tercetak di sini</h3>
-                </div>
+            <button class="btn-ticket" onclick="cetakTiket()">🎫 CETAK TIKET</button>
+            <div class="ticket-view" id="tiketResult">
+                <h3 style="color: gray; margin-top: 50px;">Tiket akan muncul di sini</h3>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-    // URL LocalTunnel Statis Anda
+    // URL Permanen LocalTunnel Anda
     const baseUrl = "https://smart-parking-yolov11.loca.lt";
+    let isConnected = false;
 
-    async function analisisFrameCCTV() {
-        const video = document.getElementById('videoCCTV');
-        const canvas = document.getElementById('captureCanvas');
-        const ctx = canvas.getContext('2d');
+    function hubungkanVideo() {
+        const imgStream = document.getElementById('videoStream');
+        const placeholder = document.getElementById('placeholderText');
         
-        document.getElementById('divDetailSlot').innerHTML = "<i>Sedang menangkap frame & menganalisis YOLOv11...</i>";
-
-        // 1. Atur ukuran canvas sesuai resolusi video asli
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        // 2. Potret frame video saat ini dan gambar ke dalam canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        // 3. Ubah hasil potretan canvas menjadi file Blob gambar (JPEG)
-        canvas.toBlob(async function(blob) {
-            if (!blob) { alert("Gagal menangkap frame video."); return; }
-
-            const formData = new FormData();
-            formData.append("file", blob, "cctv_frame.jpg");
-
-            try {
-                // 4. Kirim data ke endpoint /deteksi (Gunakan endpoint gambar agar hemat bandwidth!)
-                const response = await fetch(`${baseUrl}/deteksi`, {
-                    method: "POST",
-                    body: formData
-                });
-                const data = await response.json();
-                
-                if(data.status === "sukses") {
-                    document.getElementById('lblKosong').innerText = data.total_slot_kosong;
-                    document.getElementById('lblTerisi').innerText = data.total_slot_terisi;
-                    
-                    let htmlDetail = "";
-                    for (const [slotId, status] of Object.entries(data.detail_slot)) {
-                        let badgeClass = status === "Kosong" ? "badge-kosong" : "badge-terisi";
-                        htmlDetail += `<div>Slot <b>${slotId}</b>: <span class="badge ${badgeClass}">${status}</span></div>`;
-                    }
-                    document.getElementById('divDetailSlot').innerHTML = htmlDetail;
-                    
-                    cetakStrukKarcis(data.rekomendasi);
-                }
-            } catch (error) {
-                document.getElementById('divDetailSlot').innerHTML = "<span style='color:red;'>Gagal terhubung ke Cloud server.</span>";
-                alert("Koneksi gagal! Pastikan backend Google Colab Anda running.");
-            }
-        }, "image/jpeg", 0.9);
+        // Memanggil endpoint MJPEG streaming langsung dari Colab
+        imgStream.src = `${baseUrl}/video_feed`;
+        imgStream.style.display = "block";
+        placeholder.style.display = "none";
+        isConnected = true;
     }
 
-    function cetakStrukKarcis(slotRekomendasi) {
+    async function cetakTiket() {
+        if (!isConnected) { alert("Sambungkan koneksi CCTV terlebih dahulu!"); return; }
         const tiketContainer = document.getElementById('tiketResult');
-        if (slotRekomendasi === "PENUH") {
-            tiketContainer.innerHTML = `<h2 style='color:red; margin-top:30px;'>🚨<br>MOHON MAAF<br>PARKIR PENUH!</h2>`;
-            return;
-        }
+        tiketContainer.innerHTML = "<i>Memproses gerbang masuk...</i>";
 
-        const waktu = new Date().toLocaleTimeString();
-        tiketContainer.innerHTML = `
-            <h3 style="margin:0 0 10px 0;">🎫 TIKET MASUK PARKIR</h3>
-            <p style="margin:3px 0; font-size:14px;">Waktu: <b>${waktu}</b> | Gate: <b>UTAMA</b></p>
-            <hr style="border-top: 1px dashed #333; margin:10px 0;">
-            <p style="margin:5px 0 0 0; font-size:13px; color:#555;">REKOMENDASI LOKASI BLOK:</p>
-            <h1 style="font-size: 48px; margin: 0; color: #28a745; font-weight:bold;">${slotRekomendasi}</h1>
-        `;
+        try {
+            const response = await fetch(`${baseUrl}/cetak_tiket`, { method: "POST" });
+            const data = await response.json();
+
+            if (data.status === "penuh") {
+                tiketContainer.innerHTML = `<h2 style='color:red;'>🚨<br>MOHON MAAF<br>PARKIR PENUH!</h2>`;
+            } else {
+                const waktu = new Date().toLocaleTimeString();
+                tiketContainer.innerHTML = `
+                    <h3>MALL X PARKING</h3>
+                    <p style="margin:5px 0;">Waktu Masuk: <b>${waktu}</b></p>
+                    <p style="margin:5px 0;">Gate: <b>UTAMA</b></p>
+                    <hr style="border-top: 1px dashed #333;">
+                    <p style="margin-top:15px; font-size:14px;">SILAKAN MENUJU BLOK:</p>
+                    <h1 style="font-size: 50px; margin: 0; color: #28a745;">${data.slot}</h1>
+                `;
+            }
+        } catch (error) {
+            tiketContainer.innerHTML = `<p style="color:red;">Error: Gagal terhubung ke server.<br><small>Pastikan Anda sudah memasukkan password IP di link LocalTunnel.</small></p>`;
+        }
     }
 </script>
 
