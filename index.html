@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Monitoring CCTV & Cetak Tiket</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; text-align: center; }
         .container { max-width: 1450px; margin: auto; background: #ffffff; padding: 25px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
@@ -26,7 +27,7 @@
         .cctv-label { position: absolute; top: 12px; right: 12px; background: rgba(220, 53, 69, 0.9); padding: 5px 12px; border-radius: 4px; color: white; font-weight: bold; font-size: 12px; z-index: 10; }
         
         .side-panel { flex: 1; display: flex; flex-direction: column; gap: 20px; min-width: 320px; }
-        .ticket-view { background: #fffdf5; color: #333; padding: 20px; border-radius: 10px; border: 2px dashed #ffc107; min-height: 230px; display: flex; justify-content: center; align-items: center; }
+        .ticket-view { background: #fffdf5; color: #333; padding: 20px; border-radius: 10px; border: 2px dashed #ffc107; min-height: 230px; display: flex; justify-content: center; align-items: center; flex-direction: column; }
         
         /* SETUP ROI SECTION */
         #setup-section { display: none; background: #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: left; }
@@ -47,7 +48,7 @@
         .receipt-slot p { margin: 0 0 5px 0; font-size: 12px; font-weight: bold; }
         .receipt-slot h1 { font-size: 55px; margin: 0; font-weight: 900; color: #28a745; }
         .receipt-barcode { text-align: center; margin-top: 15px; }
-        .receipt-barcode svg { width: 100%; height: 60px; }
+        .receipt-barcode img { width: 100%; height: 60px; object-fit: contain; } /* Menggunakan img untuk barcode */
         .receipt-footer { text-align: center; font-size: 10px; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
@@ -101,6 +102,7 @@
             <div class="ticket-view" id="tiketResult">
                 <h3 style="color: #777; font-weight: 500; margin: 0;">Menunggu Pemicu Sensor Gate...</h3>
             </div>
+            <div id="download-status" style="margin-top: 10px; font-size: 13px; color: #28a745; font-weight: bold;"></div>
         </div>
     </div>
 </div>
@@ -132,7 +134,10 @@
         if (!isLive) { alert("Nyalakan koneksi monitor CCTV terlebih dahulu!"); return; }
         
         const tiketContainer = document.getElementById('tiketResult');
+        const statusContainer = document.getElementById('download-status');
+        
         tiketContainer.innerHTML = "<i style='color:#777;'>Memproses tiket & mencari slot kosong...</i>";
+        statusContainer.innerText = "";
 
         try {
             const response = await fetch(`${baseUrl}/cetak_tiket`, { method: "POST" });
@@ -149,7 +154,7 @@
 
                 tiketContainer.innerHTML = `
                     <div class="receipt-wrapper">
-                        <div class="thermal-receipt">
+                        <div class="thermal-receipt" id="receipt-to-pdf">
                             <div class="receipt-header">
                                 <h2>SMART PARKING</h2>
                                 <p>Jl. Teknologi Informatika No. 1</p>
@@ -167,7 +172,7 @@
                                 <h1>${data.slot}</h1>
                             </div>
                             <div class="receipt-barcode">
-                                <svg id="barcode"></svg>
+                                <img id="barcode"></img>
                             </div>
                             <div class="receipt-footer">
                                 <p>JANGAN TINGGALKAN TIKET<br>DAN BARANG BERHARGA DI KENDARAAN</p>
@@ -186,6 +191,30 @@
                     fontSize: 14,
                     fontOptions: "bold"
                 });
+
+                // Proses generate PDF
+                statusContainer.innerText = "⏳ Sedang membuat file PDF...";
+                
+                // Beri sedikit waktu delay agar font dan gambar barcode ter-render di DOM
+                setTimeout(() => {
+                    const element = document.getElementById('receipt-to-pdf');
+                    
+                    // Opsi untuk PDF
+                    const opt = {
+                        margin:       0.2, // margin inci
+                        filename:     `Tiket_Parkir_${ticketID}.pdf`,
+                        image:        { type: 'jpeg', quality: 1 },
+                        html2canvas:  { scale: 2 }, // Resolusi HD
+                        jsPDF:        { unit: 'in', format: 'a6', orientation: 'portrait' } // Format kecil ala karcis
+                    };
+
+                    // Konversi dan unduh otomatis
+                    html2pdf().set(opt).from(element).save().then(() => {
+                        statusContainer.innerText = `✅ Tiket ${ticketID}.pdf berhasil diunduh!`;
+                        setTimeout(() => { statusContainer.innerText = ""; }, 5000); // Hilangkan pesan setelah 5 detik
+                    });
+                }, 500); 
+
             }
         } catch (error) {
             tiketContainer.innerHTML = `<p style='color:#dc3545; text-align:center;'><b>Koneksi Gagal.</b><br><small>Pastikan Colab & Ngrok berjalan.</small></p>`;
