@@ -46,11 +46,12 @@
         .receipt-header p { margin: 5px 0 0 0; font-size: 11px; }
         .receipt-divider { border-top: 2px dashed #000; margin: 12px 0; }
         .receipt-details { font-size: 13px; line-height: 1.6; }
+        .receipt-info-kosong { text-align: center; font-size: 12px; background: #f8f9fa; padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin: 10px 0; }
         .receipt-slot { text-align: center; margin: 15px 0; border: 2px solid #000; padding: 10px; border-radius: 4px; }
         .receipt-slot p { margin: 0 0 5px 0; font-size: 12px; font-weight: bold; }
         .receipt-slot h1 { font-size: 55px; margin: 0; font-weight: 900; color: #28a745; }
         .receipt-barcode { text-align: center; margin-top: 15px; }
-        .receipt-barcode img { width: 100%; height: 60px; object-fit: contain; } /* Menggunakan img untuk barcode */
+        .receipt-barcode img { width: 100%; height: 60px; object-fit: contain; }
         .receipt-footer { text-align: center; font-size: 10px; margin-top: 15px; font-weight: bold; }
     </style>
 </head>
@@ -117,7 +118,7 @@
 
 <script>
     // ⚠️ URL
-    const baseUrl = "http://bore.pub:21166"
+    const baseUrl = "https://maine-vic-nutten-discretion.trycloudflare.com"
     let isLive = false;
     let statusInterval;
 
@@ -171,6 +172,13 @@
         statusContainer.innerText = "";
 
         try {
+            // 1. Ambil data status area kosong terbaru
+            const statusResponse = await fetch(`${baseUrl}/status_area`);
+            const statusData = await statusResponse.json();
+            const kosongA = statusData["1"].kosong;
+            const kosongB = statusData["2"].kosong;
+
+            // 2. Tembak endpoint cetak tiket
             const response = await fetch(`${baseUrl}/cetak_tiket`, { method: "POST" });
             const data = await response.json();
 
@@ -188,7 +196,6 @@
                         <div class="thermal-receipt" id="receipt-to-pdf">
                             <div class="receipt-header">
                                 <h2>SMART PARKING</h2>
-                                <p>Jl. Teknologi Informatika No. 1</p>
                             </div>
                             <div class="receipt-divider"></div>
                             <div class="receipt-details">
@@ -198,15 +205,22 @@
                                 <div><b>Gate     :</b> UTAMA-01</div>
                             </div>
                             <div class="receipt-divider"></div>
+                            
+                            <div class="receipt-info-kosong">
+                                <b>Info Parkir Kosong:</b><br>
+                                Area A: <b>${kosongA}</b> | Area B: <b>${kosongB}</b>
+                            </div>
+                            
+                            <div class="receipt-divider"></div>
                             <div class="receipt-slot">
-                                <p>LOKASI PARKIR ANDA:</p>
+                                <p>REKOMENDASI PARKIR ANDA:</p>
                                 <h1>${data.slot}</h1>
                             </div>
                             <div class="receipt-barcode">
                                 <img id="barcode"></img>
                             </div>
                             <div class="receipt-footer">
-                                <p>JANGAN TINGGALKAN TIKET<br>DAN BARANG BERHARGA DI KENDARAAN</p>
+                                <p>TOLONG PARKIR SESUAI REKOMENDASI!!</p>
                             </div>
                         </div>
                     </div>
