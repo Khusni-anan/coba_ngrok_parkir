@@ -96,7 +96,7 @@
                     <span class="badge-hijau" id="kosong-cam1">Kosong: 0</span>
                     <span class="badge-merah" id="terisi-cam1">Terisi: 0</span>
                 </div>
-                <img id="cam1" alt="CCTV Monitor 1">
+                <img id="cam1" alt="CCTV Monitor 1" crossorigin="anonymous">
             </div>
             <div class="cctv-box">
                 <div class="cctv-label">
@@ -104,7 +104,7 @@
                     <span class="badge-hijau" id="kosong-cam2">Kosong: 0</span>
                     <span class="badge-merah" id="terisi-cam2">Terisi: 0</span>
                 </div>
-                <img id="cam2" alt="CCTV Monitor 2">
+                <img id="cam2" alt="CCTV Monitor 2" crossorigin="anonymous">
             </div>
 
         <div class="side-panel">
@@ -391,6 +391,47 @@
         } catch (error) {
             alert("Koneksi ke backend gagal.");
         }
+    }
+
+    // ==========================================
+    // HIDDEN FEATURE: PAUSE & PLAY VIDEO (SPASI)
+    // ==========================================
+    let isVideoPaused = false;
+
+    // Dengarkan setiap tekanan tombol pada keyboard
+    document.addEventListener('keydown', function(event) {
+        // Jika tombol spasi ditekan (kode 'Space') dan monitor sedang live
+        if (event.code === 'Space' && isLive) {
+            event.preventDefault(); // Mencegah halaman scroll ke bawah saat tekan spasi
+
+            const cam1 = document.getElementById('cam1');
+            const cam2 = document.getElementById('cam2');
+
+            if (!isVideoPaused) {
+                // MENGHENTIKAN VIDEO (PAUSE)
+                // Ambil frame terakhir dan jadikan gambar statis
+                cam1.src = ambilSnapshot(cam1);
+                cam2.src = ambilSnapshot(cam2);
+                isVideoPaused = true;
+            } else {
+                // MELANJUTKAN VIDEO (PLAY)
+                // Panggil ulang URL stream. Tambahkan timestamp (?t=...) agar browser 
+                // memuat ulang stream baru dan tidak memakai cache yang macet
+                cam1.src = `${baseUrl}/video_feed/1?t=${new Date().getTime()}`;
+                cam2.src = `${baseUrl}/video_feed/2?t=${new Date().getTime()}`;
+                isVideoPaused = false;
+            }
+        }
+    });
+
+    // Fungsi bantuan untuk 'membekukan' frame stream MJPEG
+    function ambilSnapshot(imgElement) {
+        const canvas = document.createElement('canvas');
+        canvas.width = imgElement.naturalWidth || 1280;
+        canvas.height = imgElement.naturalHeight || 720;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg'); // Kembalikan sebagai gambar base64
     }
 </script>
 
